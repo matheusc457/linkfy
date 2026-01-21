@@ -20,10 +20,12 @@ class TestDatabase(unittest.TestCase):
         conn = self.db.get_connection()
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT name FROM sqlite_master 
             WHERE type='table' AND name='links'
-        """)
+        """
+        )
 
         result = cursor.fetchone()
         conn.close()

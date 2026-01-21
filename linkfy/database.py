@@ -18,7 +18,8 @@ class Database:
         conn = self.get_connection()
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS links (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 original_url TEXT NOT NULL,
@@ -26,7 +27,8 @@ class Database:
                 alias TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """
+        )
 
         conn.commit()
         conn.close()
@@ -55,11 +57,13 @@ class Database:
         conn = self.get_connection()
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id, original_url, shortened_url, alias, created_at
             FROM links
             ORDER BY created_at DESC
-        """)
+        """
+        )
 
         links = cursor.fetchall()
         conn.close()
@@ -71,12 +75,14 @@ class Database:
         conn = self.get_connection()
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id, original_url, shortened_url, alias, created_at
             FROM links
             ORDER BY created_at DESC
             LIMIT 1
-        """)
+        """
+        )
 
         link = cursor.fetchone()
         conn.close()
