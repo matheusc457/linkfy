@@ -1,0 +1,163 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Triggers on version tags like v1.0.0, v2.1.3, etc.
+
+jobs:
+  build:
+    name: Build and Test
+    runs-on: ubuntu-22.04
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+    
+    - name: Run tests
+      run: |
+        pytest tests/ -v --cov=linkfy --cov-report=term-missing
+    
+    - name: Build package
+      run: |
+        pip install build twine
+        python -m build
+    
+    - name: Check package
+      run: twine check dist/*
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dist-packages
+        path: dist/
+
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-22.04
+    needs: build
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch all history for changelog
+    
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: dist-packages
+        path: dist/
+    
+    - name: Get version from tag
+      id: get_version
+      run: |
+        echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+    
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # Get the previous tag
+        PREVIOUS_TAG=$(git describe --abbrev=0 --tags $(git rev-list --tags --skip=1 --max-count=1) 2>/dev/null || echo "")
+        
+        if [ -z "$PREVIOUS_TAG" ]; then
+          # First release
+          CHANGELOG="First stable release of Linkfy!"
+        else
+          # Generate changelog from commits
+          CHANGELOG=$(git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges)
+        fi
+        
+        # Save changelog to file
+        echo "$CHANGELOG" > CHANGELOG.txt
+        
+        # Create release notes
+        cat << EOF > RELEASE_NOTES.md
+        ## 🎉 Linkfy ${{ steps.get_version.outputs.TAG }} - Release
+        
+        ### 📝 What's Changed
+        
+        ${CHANGELOG}
+        
+        ### 📦 Installation
+        
+        \`\`\`bash
+        git clone https://github.com/matheusc457/linkfy.git
+        cd linkfy
+        pip install -r requirements.txt
+        pip install -e .
+        \`\`\`
+        
+        Or download the wheel/tar.gz from the assets below.
+        
+        ### 🚀 Quick Start
+        
+        \`\`\`bash
+        # Shorten a URL
+        linkfy https://example.com
+        
+        # With custom alias
+        linkfy https://github.com --alias myrepo
+        
+        # View history
+        linkfy --history
+        \`\`\`
+        
+        ### 📖 Documentation
+        
+        See the [README](https://github.com/matheusc457/linkfy/blob/main/README.md) for complete documentation.
+        
+        ### 👤 Author
+        
+        **Matheus Campos** - [@matheusc457](https://github.com/matheusc457)
+        
+        ---
+        
+        **Full Changelog**: https://github.com/matheusc457/linkfy/compare/${PREVIOUS_TAG}...${{ steps.get_version.outputs.TAG }}
+        EOF
+    
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        body_path: RELEASE_NOTES.md
+        files: |
+          dist/*
+        draft: false
+        prerelease: false
+        generate_release_notes: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Uncomment when ready to publish to PyPI
+  # pypi-publish:
+  #   name: Publish to PyPI
+  #   runs-on: ubuntu-22.04
+  #   needs: release
+  #   permissions:
+  #     id-token: write
+  #   
+  #   steps:
+  #   - name: Download build artifacts
+  #     uses: actions/download-artifact@v4
+  #     with:
+  #       name: dist-packages
+  #       path: dist/
+  #   
+  #   - name: Publish to PyPI
+  #     uses: pypa/gh-action-pypi-publish@release/v1
+  #     with:
+  #       password: ${{ secrets.PYPI_API_TOKEN }}
