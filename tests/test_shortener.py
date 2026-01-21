@@ -22,9 +22,9 @@ class TestURLShortener(unittest.TestCase):
         """Test URL validation with invalid URLs"""
         invalid_urls = [
             "not a url",
-            "ftp://example.com",  # No scheme validation for ftp
             "",
             "just-text",
+            "www.example.com",  # Missing protocol
         ]
 
         for url in invalid_urls:
@@ -37,7 +37,8 @@ class TestURLShortener(unittest.TestCase):
         )
 
         self.assertEqual(
-            self.shortener.add_protocol("https://google.com"), "https://google.com"
+            self.shortener.add_protocol("https://google.com"),
+            "https://google.com",
         )
 
         self.assertEqual(
